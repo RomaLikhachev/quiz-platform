@@ -1,6 +1,7 @@
 package com.yugyd.quiz.data.model.mappers
 
 import com.yugyd.quiz.domain.api.model.Quest
+import com.yugyd.quiz.domain.api.model.QuestType
 import com.yugyd.quiz.domain.api.model.Theme
 import com.yugyd.quiz.domain.content.api.ContentDataModel
 import com.yugyd.quiz.domain.content.api.RawContentDataModel
@@ -40,6 +41,7 @@ class TextToContentModelMapper @Inject constructor() {
             complexity = data[5].toInt(),
             category = data[6].toInt(),
             section = data[7].toInt(),
+            type = QuestType.SIMPLE,
         )
     }
 

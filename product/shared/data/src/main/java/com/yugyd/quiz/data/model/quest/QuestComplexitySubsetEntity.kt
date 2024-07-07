@@ -14,10 +14,11 @@
  *    limitations under the License.
  */
 
-package com.yugyd.quiz.gameui.game.model
+package com.yugyd.quiz.data.model.quest
 
-internal sealed class HighlightUiModel {
-    data class True(val index: Int) : HighlightUiModel()
-    data class False(val trueIndex: Int, val falseIndex: Int) : HighlightUiModel()
-    object Default : HighlightUiModel()
-}
+import androidx.room.ColumnInfo
+
+data class QuestComplexitySubsetEntity(
+    @ColumnInfo(name = "_id") val questId: Int,
+    @ColumnInfo(name = "complexity") val complexity: Int
+)

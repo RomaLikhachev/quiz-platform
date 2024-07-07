@@ -29,5 +29,6 @@ data class Quest(
     val answer8: String = "",
     val complexity: Int = 0,
     val category: Int = 0,
-    val section: Int = 0
+    val section: Int = 0,
+    val type: QuestType,
 )

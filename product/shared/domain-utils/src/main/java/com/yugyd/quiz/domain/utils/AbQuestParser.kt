@@ -17,11 +17,12 @@
 package com.yugyd.quiz.domain.utils
 
 import android.content.Context
-import com.yugyd.quiz.domain.api.model.game.QuestModel
+import com.yugyd.quiz.domain.simplequest.SimpleQuestModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
-class AbQuestParser @Inject constructor(@ApplicationContext private val context: Context) {
+class AbQuestParser @Inject constructor(@ApplicationContext private val context: Context) :
+    IAbQuestParser {
     private val aAnswer by lazy { context.getString(R.string.code_answer_a) }
     private val bAnswer by lazy { context.getString(R.string.code_answer_b) }
     private val yesAnswer by lazy { context.getString(R.string.code_answer_yes) }
@@ -49,7 +50,7 @@ class AbQuestParser @Inject constructor(@ApplicationContext private val context:
         listOf(aQuest, aQuestVariant, bQuest, bQuestVariant)
     }
 
-    fun parse(model: QuestModel): QuestModel {
+    override fun parse(model: SimpleQuestModel): SimpleQuestModel {
         return if (isAb(model)) {
             parseAbQuest(model)
         } else {
@@ -57,10 +58,10 @@ class AbQuestParser @Inject constructor(@ApplicationContext private val context:
         }
     }
 
-    private fun isAb(model: QuestModel) = model.answers.all(answerVariables::contains) &&
+    private fun isAb(model: SimpleQuestModel) = model.answers.all(answerVariables::contains) &&
             questVariables.all(model.quest::contains)
 
-    private fun parseAbQuest(model: QuestModel) = when (model.abType) {
+    private fun parseAbQuest(model: SimpleQuestModel) = when (model.abType) {
         AbType.DEFAULT -> {
             parseToSortedAnswers(model, sortingAnswerVariables).let(::parseToQuests)
         }
@@ -70,7 +71,10 @@ class AbQuestParser @Inject constructor(@ApplicationContext private val context:
         }
     }
 
-    private fun parseToSortedAnswers(model: QuestModel, answers: List<String>): QuestModel {
+    private fun parseToSortedAnswers(
+        model: SimpleQuestModel,
+        answers: List<String>,
+    ): SimpleQuestModel {
         val sortedAnswers = model.answers.sortedWith { one, two ->
             val oneIndex = answers.indexOf(one)
             val twoIndex = answers.indexOf(two)
@@ -83,7 +87,7 @@ class AbQuestParser @Inject constructor(@ApplicationContext private val context:
         )
     }
 
-    private fun parseToQuests(model: QuestModel): QuestModel {
+    private fun parseToQuests(model: SimpleQuestModel): SimpleQuestModel {
         val quest = model.quest
         val abType = model.abType
 
@@ -120,16 +124,16 @@ class AbQuestParser @Inject constructor(@ApplicationContext private val context:
         }
     }
 
-    private val QuestModel.abType: AbType
+    private val SimpleQuestModel.abType: AbType
         get() {
             return if (answers.contains(yesAnswerVariant) && answers.contains(noAnswerVariant)) {
-                AbQuestParser.AbType.VARIANT
+                AbType.VARIANT
             } else {
-                AbQuestParser.AbType.DEFAULT
+                AbType.DEFAULT
             }
         }
 
-    enum class AbType {
+    private enum class AbType {
         DEFAULT, VARIANT
     }
 

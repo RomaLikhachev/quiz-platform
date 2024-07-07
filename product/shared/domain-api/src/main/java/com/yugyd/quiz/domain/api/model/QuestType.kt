@@ -1,5 +1,5 @@
 /*
- *    Copyright 2023 Roman Likhachev
+ *    Copyright 2024 Roman Likhachev
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -14,13 +14,9 @@
  *    limitations under the License.
  */
 
-package com.yugyd.quiz.gameui.game.model
+package com.yugyd.quiz.domain.api.model
 
-internal data class QuestUiModel(
-    val id: Int = 0,
-    val quest: String = "",
-    val oneAnswer: String = "",
-    val twoAnswer: String = "",
-    val threeAnswer: String = "",
-    val fourAnswer: String = "",
-)
+enum class QuestType {
+    SIMPLE,
+    ENTER_CODE,
+}

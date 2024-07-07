@@ -14,12 +14,10 @@
  *    limitations under the License.
  */
 
-package com.yugyd.quiz.domain.api.model.game
+package com.yugyd.quiz.ui.game.api.model
 
-data class QuestModel(
-    val id: Int = 0,
-    val quest: String = "",
-    val trueAnswer: String = "",
-    val trueAnswerIndex: Int = -1,
-    val answers: List<String> = emptyList()
-)
+sealed class HighlightUiModel {
+    data class True(val index: Int) : HighlightUiModel()
+    data class False(val trueIndex: Int, val falseIndex: Int) : HighlightUiModel()
+    object Default : HighlightUiModel()
+}

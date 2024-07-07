@@ -6,6 +6,7 @@ import com.yugyd.quiz.data.database.content.ContentDatabase
 import com.yugyd.quiz.data.database.content.dao.ContentResetDao
 import com.yugyd.quiz.data.database.content.dao.QuestDao
 import com.yugyd.quiz.data.database.content.dao.ThemeDao
+import com.yugyd.quiz.data.database.content.migrations.MIGRATION_5_6
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -28,6 +29,9 @@ object ContentDatabaseModule {
             appContext,
             ContentDatabase::class.java,
             CONTENT_DB_NAME,
+        )
+        .addMigrations(
+            MIGRATION_5_6,
         )
         .fallbackToDestructiveMigration()
         .build()

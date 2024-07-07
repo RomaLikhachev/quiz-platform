@@ -20,8 +20,8 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.yugyd.quiz.data.model.QuestComplexitySubsetEntity
-import com.yugyd.quiz.data.model.QuestEntity
+import com.yugyd.quiz.data.model.quest.QuestComplexitySubsetEntity
+import com.yugyd.quiz.data.model.quest.QuestEntity
 
 @Dao
 interface QuestDao {

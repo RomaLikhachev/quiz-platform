@@ -19,11 +19,11 @@ package com.yugyd.quiz.domain.game
 import com.yugyd.quiz.core.coroutinesutils.DispatchersProvider
 import com.yugyd.quiz.domain.api.model.Mode
 import com.yugyd.quiz.domain.api.model.Quest
+import com.yugyd.quiz.domain.api.model.QuestType
 import com.yugyd.quiz.domain.api.model.Record
 import com.yugyd.quiz.domain.api.model.game.ControlModel
 import com.yugyd.quiz.domain.api.model.game.GameModel
 import com.yugyd.quiz.domain.api.model.game.HighlightModel
-import com.yugyd.quiz.domain.api.model.game.QuestModel
 import com.yugyd.quiz.domain.api.model.payload.GameEndPayload
 import com.yugyd.quiz.domain.api.model.payload.GamePayload
 import com.yugyd.quiz.domain.api.repository.ErrorSource
@@ -35,9 +35,13 @@ import com.yugyd.quiz.domain.api.repository.TrainSource
 import com.yugyd.quiz.domain.controller.ErrorController
 import com.yugyd.quiz.domain.controller.RecordController
 import com.yugyd.quiz.domain.controller.SectionController
+import com.yugyd.quiz.domain.enterquest.EnterQuestModel
+import com.yugyd.quiz.domain.game.api.BaseQuestDomainModel
+import com.yugyd.quiz.domain.game.api.exception.QuestTypeException
 import com.yugyd.quiz.domain.game.exception.FinishGameException
 import com.yugyd.quiz.domain.game.exception.RewardedGameException
 import com.yugyd.quiz.domain.game.model.GameState
+import com.yugyd.quiz.domain.simplequest.SimpleQuestModel
 import com.yugyd.quiz.domain.utils.AbQuestParser
 import com.yugyd.quiz.domain.utils.SeparatorParser
 import kotlinx.coroutines.withContext
@@ -128,10 +132,17 @@ internal class GameInteractorImpl @Inject constructor(
     }
 
     override suspend fun resultAnswer(
-        quest: QuestModel,
-        index: Int
+        quest: BaseQuestDomainModel,
+        index: Int,
+        userAnswer: String,
     ) = withContext(dispatcherProvider.io) {
-        if (index == quest.trueAnswerIndex) {
+        if (
+            isTrueAnswer(
+                quest = quest,
+                index = index,
+                userAnswer = userAnswer,
+            )
+        ) {
             addRightQuest(gameMode, quest.id)
             incrementPoint()
             addSectionQuest(gameMode, quest.id)
@@ -141,6 +152,14 @@ internal class GameInteractorImpl @Inject constructor(
             addErrorQuest(gameMode, quest.id)
             decrementCondition(gameMode)
             getHighlightModel(quest, index, false)
+        }
+    }
+
+    private fun isTrueAnswer(quest: BaseQuestDomainModel, index: Int, userAnswer: String): Boolean {
+        return when (quest) {
+            is EnterQuestModel -> quest.trueAnswer == userAnswer
+            is SimpleQuestModel -> quest.trueAnswerIndex == index
+            else -> throw QuestTypeException("Unknown quest model")
         }
     }
 
@@ -208,7 +227,6 @@ internal class GameInteractorImpl @Inject constructor(
 
     private suspend fun nextQuest() = getQuest(getQuestId())
         .let(::getQuestModel)
-        .let(abQuestParser::parse)
 
     private fun nextControl() = ControlModel(
         mode = payload.mode,
@@ -228,29 +246,41 @@ internal class GameInteractorImpl @Inject constructor(
         .getQuest(id)
         .let(separatorParser::parse)
 
-    private fun getQuestModel(quest: Quest): QuestModel {
-        val answers = listOf(
-            quest.answer2,
-            quest.answer3,
-            quest.answer4,
-            quest.answer5,
-            quest.answer6,
-            quest.answer7,
-            quest.answer8
-        )
-            .filter { it.isNotEmpty() }
-            .shuffled()
-            .take(3)
-            .plus(quest.trueAnswer)
-            .shuffled()
+    private fun getQuestModel(quest: Quest): BaseQuestDomainModel {
+        return when (quest.type) {
+            QuestType.SIMPLE -> {
+                val answers = listOf(
+                    quest.answer2,
+                    quest.answer3,
+                    quest.answer4,
+                    quest.answer5,
+                    quest.answer6,
+                    quest.answer7,
+                    quest.answer8,
+                )
+                    .filter { it.isNotEmpty() }
+                    .shuffled()
+                    .take(3)
+                    .plus(quest.trueAnswer)
+                    .shuffled()
+                val simpleQuest = SimpleQuestModel(
+                    id = quest.id,
+                    quest = quest.quest,
+                    trueAnswer = quest.trueAnswer,
+                    answers = answers,
+                    trueAnswerIndex = answers.indexOf(quest.trueAnswer),
+                )
+                abQuestParser.parse(simpleQuest)
+            }
 
-        return QuestModel(
-            id = quest.id,
-            quest = quest.quest,
-            trueAnswer = quest.trueAnswer,
-            trueAnswerIndex = answers.indexOf(quest.trueAnswer),
-            answers = answers
-        )
+            QuestType.ENTER_CODE -> {
+                EnterQuestModel(
+                    id = quest.id,
+                    quest = quest.quest,
+                    trueAnswer = quest.trueAnswer,
+                )
+            }
+        }
     }
 
     private fun incrementPoint() {
@@ -291,12 +321,31 @@ internal class GameInteractorImpl @Inject constructor(
         }
     }
 
-    private fun getHighlightModel(quest: QuestModel, index: Int, isSuccess: Boolean) =
-        HighlightModel(
-            state = if (isSuccess) HighlightModel.State.TRUE else HighlightModel.State.FALSE,
-            trueAnswerIndex = quest.trueAnswerIndex,
-            selectedAnswerIndex = index
-        )
+    private fun getHighlightModel(
+        quest: BaseQuestDomainModel,
+        index: Int,
+        isSuccess: Boolean,
+    ): HighlightModel {
+        val highlightModel = if (isSuccess) {
+            HighlightModel.State.TRUE
+        } else {
+            HighlightModel.State.FALSE
+        }
+
+        return when (quest) {
+            is EnterQuestModel -> HighlightModel(state = highlightModel)
+
+            is SimpleQuestModel -> {
+                HighlightModel(
+                    state = highlightModel,
+                    trueAnswerIndex = quest.trueAnswerIndex,
+                    selectedAnswerIndex = index,
+                )
+            }
+
+            else -> throw QuestTypeException("Unknown quest model")
+        }
+    }
 
     private fun getFinishError(): Nothing {
         if (!isShowRewarded && gameMode != Mode.TRAIN) {

@@ -17,7 +17,7 @@
 package com.yugyd.quiz.data
 
 import com.yugyd.quiz.data.database.content.dao.QuestDao
-import com.yugyd.quiz.data.model.QuestComplexitySubsetEntity
+import com.yugyd.quiz.data.model.quest.QuestComplexitySubsetEntity
 import com.yugyd.quiz.data.model.mappers.QuestEntityMapper
 import com.yugyd.quiz.domain.api.model.Quest
 import com.yugyd.quiz.domain.api.repository.QuestSource

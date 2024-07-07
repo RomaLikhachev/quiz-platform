@@ -24,13 +24,15 @@ import com.yugyd.quiz.core.Logger
 import com.yugyd.quiz.core.coroutinesutils.DispatchersProvider
 import com.yugyd.quiz.core.runCatch
 import com.yugyd.quiz.domain.api.model.game.HighlightModel
-import com.yugyd.quiz.domain.api.model.game.QuestModel
 import com.yugyd.quiz.domain.api.model.payload.GameEndPayload
+import com.yugyd.quiz.domain.enterquest.EnterQuestModel
 import com.yugyd.quiz.domain.game.GameInteractor
+import com.yugyd.quiz.domain.game.api.exception.QuestTypeException
 import com.yugyd.quiz.domain.game.exception.FinishGameException
 import com.yugyd.quiz.domain.game.exception.RewardedGameException
 import com.yugyd.quiz.domain.game.model.GameState
 import com.yugyd.quiz.domain.options.OptionsInteractor
+import com.yugyd.quiz.domain.simplequest.SimpleQuestModel
 import com.yugyd.quiz.featuretoggle.domain.FeatureManager
 import com.yugyd.quiz.featuretoggle.domain.model.FeatureToggle
 import com.yugyd.quiz.gameui.game.GameView.Action
@@ -38,16 +40,15 @@ import com.yugyd.quiz.gameui.game.GameView.State
 import com.yugyd.quiz.gameui.game.GameView.State.NavigationState
 import com.yugyd.quiz.gameui.game.mapper.ControlUiMapper
 import com.yugyd.quiz.gameui.game.mapper.HighlightUiMapper
-import com.yugyd.quiz.gameui.game.mapper.QuestUiMapper
 import com.yugyd.quiz.gameui.game.model.ControlUiModel
-import com.yugyd.quiz.gameui.game.model.HighlightUiModel
-import com.yugyd.quiz.gameui.game.model.QuestUiModel
 import com.yugyd.quiz.gameui.game.model.RewardedAdStatus
+import com.yugyd.quiz.ui.enterquest.EnterQuestUiMapper
+import com.yugyd.quiz.ui.game.api.model.HighlightUiModel
+import com.yugyd.quiz.ui.simplequest.SimpleQuestUiMapper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -56,7 +57,8 @@ internal class GameViewModel @Inject constructor(
     private val gameInteractor: GameInteractor,
     private val optionsInteractor: OptionsInteractor,
     private val controlUiMapper: ControlUiMapper,
-    private val questUiMapper: QuestUiMapper,
+    private val questUiMapper: SimpleQuestUiMapper,
+    private val enterQuestUiMapper: EnterQuestUiMapper,
     private val highlightUiMapper: HighlightUiMapper,
     private val featureManager: FeatureManager,
     logger: Logger,
@@ -90,8 +92,6 @@ internal class GameViewModel @Inject constructor(
             Action.OnRewardAdLoad -> onRewardAdLoad()
             Action.OnRewardAdNotShowed -> onRewardAdNotShowed()
             Action.OnUserEarnedReward -> onUserEarnedReward()
-            Action.OnAutoTestClicked -> onAutoTestClicked()
-            Action.OnAutoTestLongClicked -> onAutoTestLongClicked()
             Action.OnAdBannerAnimationEnded -> {
                 screenState = screenState.copy(showAdBannerAnimation = false)
             }
@@ -125,6 +125,12 @@ internal class GameViewModel @Inject constructor(
             Action.OnNavigationHandled -> {
                 screenState = screenState.copy(navigationState = null)
             }
+
+            is Action.OnAnswerTextChanged -> {
+                screenState = screenState.copy(
+                    manualAnswer = action.userAnswer,
+                )
+            }
         }
     }
 
@@ -152,7 +158,11 @@ internal class GameViewModel @Inject constructor(
         vmScopeErrorHandled.launch {
             runCatch(
                 block = {
-                    val answerData = gameInteractor.resultAnswer(screenState.domainQuest, index)
+                    val answerData = gameInteractor.resultAnswer(
+                        quest = screenState.domainQuest!!,
+                        index = index,
+                        userAnswer = screenState.manualAnswer
+                    )
                     processAnswerData(answerData)
                 },
                 catch = ::processError
@@ -211,34 +221,13 @@ internal class GameViewModel @Inject constructor(
         )
     }
 
-    private fun onAutoTestClicked() {
-        if (GlobalConfig.DEBUG) {
-            debugableAutoTestJob?.cancel()
-            debugableAutoTestJob = vmScopeErrorHandled.launch {
-                repeat(Int.MAX_VALUE) {
-                    withContext(dispatchersProvider.default) {
-                        val delayTimeMills = optionsInteractor.transition.value.toLong() * 2000
-                        delay(delayTimeMills)
-                    }
-                    onAction(Action.OnAnswerClicked(screenState.domainQuest.trueAnswerIndex))
-                }
-            }
-        }
-    }
-
-    private fun onAutoTestLongClicked() {
-        if (GlobalConfig.DEBUG) {
-            debugableAutoTestJob?.cancel()
-        }
-    }
-
     private fun initData() {
         vmScopeErrorHandled.launch {
             screenState = screenState.copy(
                 isLoading = true,
                 isWarning = false,
-                domainQuest = QuestModel(),
-                quest = QuestUiModel(),
+                domainQuest = null,
+                quest = null,
                 control = ControlUiModel(),
             )
 
@@ -272,7 +261,25 @@ internal class GameViewModel @Inject constructor(
         val quest = data.quest
         screenState = screenState.copy(
             domainQuest = quest,
-            quest = questUiMapper.map(quest),
+            quest = when (quest) {
+                is SimpleQuestModel -> questUiMapper.map(
+                    quest,
+                    SimpleQuestUiMapper.SimpleArgs(
+                        answerButtonIsEnabled = screenState.control.answerButtonIsEnabled,
+                        highlight = screenState.control.highlight,
+                    ),
+                )
+
+                is EnterQuestModel -> enterQuestUiMapper.map(
+                    quest,
+                    EnterQuestUiMapper.EnterCodeArgs(
+                        screenState.manualAnswer,
+                        screenState.control.highlight,
+                    )
+                )
+
+                else -> throw QuestTypeException("UI mapper not founded")
+            },
             control = controlUiMapper.map(data.control),
             isAdFeatureEnabled = isAdFeatureEnabled,
             isProFeatureEnabled = isProFeatureEnabled,
@@ -313,8 +320,8 @@ internal class GameViewModel @Inject constructor(
                 isLoading = false,
                 isWarning = true,
                 showErrorMessage = true,
-                domainQuest = QuestModel(),
-                quest = QuestUiModel(),
+                domainQuest = null,
+                quest = null,
                 control = ControlUiModel(),
             )
         }

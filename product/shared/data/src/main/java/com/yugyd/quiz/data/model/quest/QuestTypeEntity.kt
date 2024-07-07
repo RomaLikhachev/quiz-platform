@@ -1,5 +1,5 @@
 /*
- *    Copyright 2023 Roman Likhachev
+ *    Copyright 2024 Roman Likhachev
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -14,11 +14,9 @@
  *    limitations under the License.
  */
 
-package com.yugyd.quiz.data.model
+package com.yugyd.quiz.data.model.quest
 
-import androidx.room.ColumnInfo
-
-data class QuestComplexitySubsetEntity(
-    @ColumnInfo(name = "_id") val questId: Int,
-    @ColumnInfo(name = "complexity") val complexity: Int
-)
+enum class QuestTypeEntity(val databaseValue: String) {
+    SIMPLE(databaseValue = "simple"),
+    ENTER_CODE(databaseValue = "enter_code"),
+}
